@@ -70,11 +70,17 @@ router.post('/login', async (req, res, next) => {
       { expiresIn: '7d' }
     );
     
-    // Log activity
-    await req.db.query(
-      'INSERT INTO activity_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
-      [user.id, 'user_login', req.ip || req.socket.remoteAddress]
-    );
+    // Log activity - with error handling so login doesn't fail if table missing
+    try {
+      await req.db.query(
+        'INSERT INTO activity_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
+        [user.id, 'user_login', req.ip || req.socket.remoteAddress]
+      );
+      console.log(`Activity logged for user: ${email}`);
+    } catch (logError) {
+      // Don't fail login if logging fails (table might not exist)
+      console.log('Note: Could not log activity (activity_logs table may not exist):', logError.message);
+    }
     
     console.log(`Login successful for user: ${email}`);
     
@@ -94,7 +100,7 @@ router.post('/login', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error during login' });
+    res.status(500).json({ error: 'Server error during login: ' + error.message });
   }
 });
 
@@ -175,10 +181,14 @@ router.post('/change-password', authenticateToken, [
 // Logout
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
-    await req.db.query(
-      'INSERT INTO activity_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
-      [req.user.id, 'user_logout', req.ip || req.socket.remoteAddress]
-    );
+    try {
+      await req.db.query(
+        'INSERT INTO activity_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
+        [req.user.id, 'user_logout', req.ip || req.socket.remoteAddress]
+      );
+    } catch (logError) {
+      console.log('Note: Could not log activity (activity_logs table may not exist):', logError.message);
+    }
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -223,6 +233,35 @@ router.post('/forgot-password', [
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Test endpoint to check database connection
+router.get('/test-db', async (req, res) => {
+  try {
+    const result = await req.db.query('SELECT NOW() as time, current_database() as db');
+    res.json({
+      success: true,
+      time: result.rows[0].time,
+      database: result.rows[0].db,
+      message: 'Database connection successful'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to check users
+router.get('/test-users', async (req, res) => {
+  try {
+    const result = await req.db.query('SELECT id, email, role FROM users LIMIT 10');
+    res.json({
+      success: true,
+      count: result.rows.length,
+      users: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
