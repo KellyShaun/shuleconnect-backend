@@ -3,8 +3,7 @@ services:
     name: shuleconnect-backend
     runtime: node
     plan: free
-    preBuildCommand: npm install moment
-    buildCommand: npm install
+    buildCommand: npm install && npm install moment
     startCommand: node src/server.js
     envVars:
       - key: NODE_ENV
