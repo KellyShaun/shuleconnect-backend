@@ -3,7 +3,7 @@ services:
     name: shuleconnect-backend
     runtime: node
     plan: free
-    buildCommand: npm install && npm install moment
+    buildCommand: npm install
     startCommand: node src/server.js
     envVars:
       - key: NODE_ENV
@@ -19,7 +19,7 @@ services:
       - key: DB_USER
         value: postgres.jhqheocgiwjajtxmhmxs
       - key: DB_PASSWORD
-        value: "%5BEliana%40Shaun26%5D"
+        value: Eliana@Shaun26
       - key: DB_NAME
         value: postgres
       - key: DB_SSL
