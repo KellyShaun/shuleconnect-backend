@@ -7,7 +7,8 @@ const { Pool } = require('pg');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-// Add this line with the other route imports
+
+// Route imports
 const librarianRoutes = require('./routes/librarian');
 const accountantRoutes = require('./routes/accountant');
 
@@ -16,10 +17,19 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://shuleconnect-frontend.onrender.com',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+// Socket.io with CORS
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true
   }
 });
@@ -34,6 +44,7 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Test database connection
@@ -46,16 +57,35 @@ pool.connect((err, client, release) => {
   }
 });
 
-// Middleware
+// ==================== MIDDLEWARE ====================
+
+// Helmet for security (configured for production)
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
+
+// CORS middleware - Allow multiple origins
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Make db pool available to routes
 app.use((req, res, next) => {
@@ -70,12 +100,13 @@ app.use((req, res, next) => {
 });
 
 // ==================== ROUTES ====================
+
 // Authentication & Users
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 
 // Core Modules
-app.use('/api/students', require('./routes/students'));  // Changed from unifiedStudents
+app.use('/api/students', require('./routes/students'));
 app.use('/api/classes', require('./routes/classes'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/results', require('./routes/results'));
@@ -103,11 +134,29 @@ app.get('/api/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    cors: allowedOrigins
+  });
+});
+
+// Simple root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'ShuleConnect API Server',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      students: '/api/students',
+      classes: '/api/classes'
+    }
   });
 });
 
 // ==================== ERROR HANDLING ====================
+
 // 404 handler for undefined routes
 app.use((req, res) => {
   res.status(404).json({ 
@@ -120,6 +169,15 @@ app.use((req, res) => {
 // Global error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
+  
+  // Handle CORS errors
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ 
+      error: 'CORS error: Origin not allowed',
+      allowedOrigins: allowedOrigins
+    });
+  }
+  
   res.status(500).json({ 
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
@@ -162,6 +220,7 @@ server.listen(PORT, () => {
 ║   🗄️  Database: ${process.env.DB_NAME || 'shuleconnect002'}               ║
 ║                                                       ║
 ║   ✅ API Ready at: http://localhost:${PORT}/api        ║
+║   🔗 CORS Allowed Origins: ${allowedOrigins.join(', ')}║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
   `);
