@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: shuleconnect-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: NODE_VERSION
+        value: 18.20.0
+      - key: DB_HOST
+        value: aws-0-eu-west-1.pooler.supabase.com
+      - key: DB_PORT
+        value: 5432
+      - key: DB_USER
+        value: postgres.jhqheocgiwjajtxmhmxs
+      - key: DB_PASSWORD
+        value: "Eliana%40Shaun26"
+      - key: DB_NAME
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - key: JWT_SECRET
+        value: c8f72a2cfeeb2063d03a9d8fd638b021fe401303d99f624a09c29c95d604ef5b19d12f492face94ec6ccf34e612a4c9a1ce6baaa165ced038fe8f36c0985b86d
+      - key: JWT_REFRESH_SECRET
+        value: 78b9def23a0332d709476a9774c80ee104e5adc383c44bdab9f84c6222da20038b4e4fb5477906d33fa5c4550f93947141246d59d2361477d6a6a9a4598a3219
+      - key: SUPABASE_URL
+        value: https://jhqheocgiwjajtxmhmxs.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpocWhlb2NnaXdqYWp0eG1obXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTA1NzcsImV4cCI6MjA5MjE4NjU3N30.ypBNWd6wSf4vq4cl3loTl-Hkvhxs-8P5M5vomDJLLwQ
